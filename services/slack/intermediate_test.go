@@ -1,6 +1,7 @@
 package slack
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -655,4 +656,88 @@ func TestAddPostToThreads(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestWorkflow(t *testing.T) {
+	const postJson = `{
+        "type": "message",
+        "subtype": "bot_message",
+        "text": "Some text",
+        "ts": "1,
+        "username": "k8s PR",
+        "bot_id": "B01",
+        "thread_ts": "1",
+        "is_locked": false,
+        "subscribed": false,
+        "blocks": [
+            {
+                "type": "rich_text",
+                "block_id": "xsNJ",
+                "elements": [
+                    {
+                        "type": "rich_text_section",
+                        "elements": [
+                            {
+                                "type": "user",
+                                "user_id": "U01"
+                            },
+                            {
+                                "type": "text",
+                                "text": "  asks to approve MR: "
+                            },
+                            {
+                                "type": "link",
+                                "url": "https:\/\/gitlab.com\/",
+                                "text": "https:\/\/gitlab.com\/"
+                            },
+                            {
+                                "type": "text",
+                                "text": "\n\n"
+                            },
+                            {
+                                "type": "text",
+                                "text": "In cluster: ",
+                                "style": {
+                                    "bold": true
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": "Prod"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "reactions": []
+    }`
+	var post SlackPost
+	if !assert.NoError(t, json.Unmarshal([]byte(postJson), &post)) {
+		return
+	}
+	slackData := &SlackExport{
+		TeamName: "team",
+		Channels: []SlackChannel{
+			{
+				Id:   "channel",
+				Name: "channel",
+			},
+		},
+		Posts: map[string][]SlackPost{
+			"channel": {post},
+		},
+	}
+	transformer := NewTransformer("team", log.New())
+	transformer.Intermediate.PublicChannels = transformer.TransformChannels(slackData.Channels)
+	transformer.Intermediate.UsersById = make(map[string]*IntermediateUser)
+	if !assert.NoError(t, transformer.TransformPosts(&TransformConfig{
+		ImportWorkflowMessages: true,
+	}, slackData)) {
+		return
+	}
+	if !assert.Equal(t, 1, len(transformer.Intermediate.Posts)) {
+		return
+	}
+	assert.Equal(t, WorkflowUserName, transformer.Intermediate.Posts[0].User)
 }

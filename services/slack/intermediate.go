@@ -528,10 +528,6 @@ func (t *Transformer) TransformPosts(cfg *TransformConfig, slackExport *SlackExp
 				if !cfg.ImportWorkflowMessages {
 					continue
 				}
-				if post.User == "" {
-					t.Logger.Warn("Unable to import bot_message as the user field is missing.")
-					continue
-				}
 				author := t.selectOrCreateWorkflowUser(post)
 				newPost := &IntermediatePost{
 					User:     author.Username,
